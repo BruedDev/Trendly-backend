@@ -1,5 +1,5 @@
 // controllers/posts.controller.js
-import { getAllPosts, getPostById, createPost } from '../helper/sanity.js';
+import { getAllPosts, getPostById, createPost } from '../utils/sanity.js';
 
 export async function getAllPostsController(req, res) {
   try {
@@ -9,7 +9,6 @@ export async function getAllPostsController(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
-
 export async function getPostByIdController(req, res) {
   try {
     const post = await getPostById(req.params.id);
@@ -19,6 +18,7 @@ export async function getPostByIdController(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
 
 export async function createPostController(req, res) {
   try {
