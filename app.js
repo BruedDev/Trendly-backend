@@ -26,7 +26,7 @@ app.use(routes);
 
 // Route test
 app.get('/', (req, res) => {
-  res.send('API Instagram Clone đang hoạt động');
+  res.send('API Trendly đang hoạt động');
 });
 
 const PORT = process.env.PORT || 5000;

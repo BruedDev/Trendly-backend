@@ -12,7 +12,7 @@ export async function getPostById(id) {
   return await sanityClient.fetch(query, { id });
 }
 
-// Tạo bài đăng mới (yêu cầu SANITY_API_TOKEN trong .env)
+// Tạo bài đăng mới
 export async function createPost(postData) {
   return await sanityClient.create({ ...postData, _type: 'post' });
 }
