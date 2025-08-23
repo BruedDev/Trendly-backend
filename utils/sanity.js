@@ -1,18 +1,18 @@
 import sanityClient from '../config/sanity.config.js';
 
-// Lấy tất cả bài đăng
-export async function getAllPosts() {
-  const query = '*[_type == "post"] | order(_createdAt desc)';
+// Lấy tất cả sản phẩm
+export async function getAllProducts() {
+  const query = '*[_type == "product"] | order(_createdAt desc)';
   return await sanityClient.fetch(query);
 }
 
-// Lấy bài đăng theo ID
-export async function getPostById(id) {
-  const query = '*[_type == "post" && _id == $id][0]';
+// Lấy sản phẩm theo ID
+export async function getProductById(id) {
+  const query = '*[_type == "product" && _id == $id][0]';
   return await sanityClient.fetch(query, { id });
 }
 
-// Tạo bài đăng mới
-export async function createPost(postData) {
-  return await sanityClient.create({ ...postData, _type: 'post' });
+// Tạo sản phẩm mới
+export async function createProduct(productData) {
+  return await sanityClient.create({ ...productData, _type: 'product' });
 }
