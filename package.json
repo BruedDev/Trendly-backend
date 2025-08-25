@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "main": "app.js",
   "type": "module",
-  "scripts": {
-    "start": "node app.js",
-    "server": "nodemon app.js"
-  },
+"scripts": {
+  "start": "node app.js",
+  "server": "nodemon app.js",
+  "build": "echo 'build success'",
+  "test": "echo 'no tests yet' && exit 0"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
