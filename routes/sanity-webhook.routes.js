@@ -12,7 +12,7 @@ router.post('/sanity-webhook', async (req, res) => {
       return res.status(400).json({ error: 'Not a product event or missing _id' });
     }
     // Lấy lại dữ liệu sản phẩm từ Sanity
-    const product = await sanityClient.fetch('*[_type == "product" && _id == $id][0]{_id, colors}', { id: _id });
+    const product = await sanityClient.fetch('*[_type == "product" && _id == $id][0]{_id, title, colors}', { id: _id });
     if (!product) return res.status(404).json({ error: 'Product not found in Sanity' });
     const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
       colorCode: c.colorCode,
@@ -22,6 +22,7 @@ router.post('/sanity-webhook', async (req, res) => {
     await Inventory.findOneAndUpdate(
       { productId: product._id },
       {
+        title: product.title,
         totalQuantity,
         colors,
         updatedAt: new Date()

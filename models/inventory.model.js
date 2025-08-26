@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 
 const inventorySchema = new mongoose.Schema({
   productId: { type: String, required: true }, // _id hoặc slug của product từ Sanity
+  title: { type: String }, // tên sản phẩm
   totalQuantity: { type: Number, required: true, default: 0 },
   colors: [
     {
