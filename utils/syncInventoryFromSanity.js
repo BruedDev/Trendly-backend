@@ -4,8 +4,8 @@ import Inventory from '../models/inventory.model.js';
 // Script đồng bộ inventory từ Sanity sang MongoDB
 
 export async function syncInventoryFromSanity() {
-  // Lấy tất cả sản phẩm từ Sanity (có totalProduct và colors.quantity)
-  const products = await sanityClient.fetch('*[_type == "product"]{_id, colors}');
+  // Lấy tất cả sản phẩm từ Sanity (có title và colors.quantity)
+  const products = await sanityClient.fetch('*[_type == "product"]{_id, title, colors}');
   for (const product of products) {
     const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
       colorCode: c.colorCode,
@@ -15,6 +15,7 @@ export async function syncInventoryFromSanity() {
     await Inventory.findOneAndUpdate(
       { productId: product._id },
       {
+        title: product.title,
         totalQuantity,
         colors,
         updatedAt: new Date()
