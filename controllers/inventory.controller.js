@@ -9,7 +9,7 @@ export async function handleSanityInventoryWebhook({ _id, _type, _deleted }) {
   if (_deleted) {
     // Nếu là xóa sản phẩm, xóa inventory tương ứng
     await Inventory.deleteOne({ productId: _id });
-    return { deleted: true };
+    return { success: true, action: 'delete', message: 'Product deleted from MongoDB' };
   } else {
     // Nếu là tạo/cập nhật sản phẩm, đồng bộ inventory
     const product = await sanityClient.fetch('*[_type == "product" && _id == $id][0]{_id, title, colors}', { id: _id });
@@ -29,6 +29,6 @@ export async function handleSanityInventoryWebhook({ _id, _type, _deleted }) {
       },
       { upsert: true, new: true }
     );
-    return { synced: true };
+    return { success: true, action: 'sync', message: 'Product synced to MongoDB' };
   }
 }
