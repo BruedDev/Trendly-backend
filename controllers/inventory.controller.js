@@ -11,7 +11,7 @@ export async function handleSanityInventoryWebhook({ _id, _type, _deleted }) {
     await Inventory.deleteOne({ productId: _id });
     return { deleted: true };
   } else {
-    // Nếu là tạo/cập nhật sản phẩm, đồng bộ inventory từ Sanity
+    // Nếu là tạo/cập nhật sản phẩm, đồng bộ inventory
     const product = await sanityClient.fetch('*[_type == "product" && _id == $id][0]{_id, title, colors}', { id: _id });
     if (!product) throw new Error('Product not found in Sanity');
     const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
