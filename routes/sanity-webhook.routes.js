@@ -1,7 +1,6 @@
 import express from 'express';
 import { handleSanityInventoryWebhook } from '../controllers/inventory.controller.js';
 
-
 const router = express.Router();
 
 // Webhook nhận sự kiện từ Sanity
