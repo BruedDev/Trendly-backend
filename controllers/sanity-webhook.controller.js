@@ -1,27 +1,23 @@
+
 import sanityClient from '../config/sanity.config.js';
 import Inventory from '../models/inventory.model.js';
+import Cart from '../models/cart.model.js';
 
-// Script đồng bộ inventory từ Sanity sang MongoDB
+// Script đồng bộ inventory và cart từ Sanity sang MongoDB
 
-export async function syncInventoryFromSanity() {
+export async function sanityWebhook() {
   // Lấy tất cả sản phẩm từ Sanity (có title và colors.quantity)
   const products = await sanityClient.fetch('*[_type == "product"]{_id, title, colors}');
   const sanityProductIds = products.map(p => p._id);
 
-  // Lấy tất cả productId hiện có trong MongoDB
+  // --- ĐỒNG BỘ INVENTORY ---
   const mongoInventories = await Inventory.find({}, 'productId');
   const mongoProductIds = mongoInventories.map(inv => inv.productId);
-
-  // Tìm các productId đã bị xóa trên Sanity nhưng còn trong MongoDB
   const deletedProductIds = mongoProductIds.filter(id => !sanityProductIds.includes(id));
-
-  // Xóa các productId này khỏi MongoDB
   if (deletedProductIds.length > 0) {
     await Inventory.deleteMany({ productId: { $in: deletedProductIds } });
     console.log(`Đã xóa tồn kho các sản phẩm không còn trên Sanity:`, deletedProductIds);
   }
-
-  // Giữ nguyên logic hiện tại để cập nhật/thêm sản phẩm
   for (const product of products) {
     const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
       colorCode: c.colorCode,
@@ -39,6 +35,21 @@ export async function syncInventoryFromSanity() {
       { upsert: true, new: true }
     );
   }
-  console.log('Đồng bộ tồn kho từ Sanity sang MongoDB thành công!');
+
+  // --- ĐỒNG BỘ CART ---
+  // Xóa các cart item có productId không còn trên Sanity
+  const carts = await Cart.find({});
+  for (const cart of carts) {
+    const originalLength = cart.items.length;
+    cart.items = cart.items.filter(item => sanityProductIds.includes(item.productId));
+    if (cart.items.length !== originalLength) {
+      // Nếu có thay đổi, tính lại total và lưu
+      cart.total = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+      await cart.save();
+      console.log(`Đã xóa các sản phẩm không còn trên Sanity khỏi giỏ hàng của user ${cart.userId}`);
+    }
+  }
+
+  console.log('Đồng bộ tồn kho và giỏ hàng từ Sanity sang MongoDB thành công!');
 }
 
