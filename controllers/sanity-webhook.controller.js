@@ -36,15 +36,24 @@ export async function sanityWebhook() {
     );
   }
 
+
   // --- ĐỒNG BỘ CART ---
-  // Xóa các cart item có productId không còn trên Sanity
+  // Xóa các cart item có productId không còn trên Sanity và tính lại total
   const carts = await Cart.find({});
   for (const cart of carts) {
     const originalLength = cart.items.length;
+    // Lọc lại các item còn tồn tại trên Sanity
     cart.items = cart.items.filter(item => sanityProductIds.includes(item.productId));
     if (cart.items.length !== originalLength) {
-      // Nếu có thay đổi, tính lại total và lưu
-      cart.total = cart.items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+      // Tính lại total dựa trên các item còn lại
+      let total = 0;
+      for (const item of cart.items) {
+        // Nếu có trường price trong item thì dùng, không thì bỏ qua (hoặc có thể fetch lại giá từ Sanity nếu muốn)
+        if (typeof item.price === 'number') {
+          total += item.price * (item.quantity || 1);
+        }
+      }
+      cart.total = total;
       await cart.save();
       console.log(`Đã xóa các sản phẩm không còn trên Sanity khỏi giỏ hàng của user ${cart.userId}`);
     }
