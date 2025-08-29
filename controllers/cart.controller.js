@@ -1,4 +1,3 @@
-// controllers/cart.controller.js
 import Cart from '../models/cart.model.js';
 import { getProductById } from '../utils/sanity.js';
 
