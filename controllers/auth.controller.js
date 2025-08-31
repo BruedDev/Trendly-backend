@@ -4,6 +4,11 @@ import jwt from 'jsonwebtoken';
 
 export const login = async (req, res) => {
   try {
+    console.log('=== PRODUCTION DEBUG ===');
+    console.log('Origin:', req.headers.origin);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('User-Agent:', req.headers['user-agent']);
+
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email và password là bắt buộc.' });
@@ -25,11 +30,9 @@ export const login = async (req, res) => {
     // ---- SỬA Ở ĐÂY ----
     res.cookie('token', token, {
       httpOnly: true,
-      // secure sẽ là true chỉ khi chạy ở môi trường production
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // 'strict' an toàn hơn 'lax'
-      maxAge: 24 * 60 * 60 * 1000, // 1 ngày
-      // QUAN TRỌNG: Đảm bảo cookie có hiệu lực trên toàn bộ trang web
+      secure: isProduction || isVercelPreview,
+      sameSite: isCrossDomain ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     });
     // ---- KẾT THÚC SỬA ----
