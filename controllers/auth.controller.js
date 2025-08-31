@@ -25,25 +25,12 @@ export const login = async (req, res) => {
       { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '1d' }
     );
 
-    // FIX: Define isProduction properly
-    const isProduction = process.env.NODE_ENV === 'production';
-    const origin = req.headers.origin;
-    const isCrossDomain = origin && !origin.includes('localhost');
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000,
-      path: '/',
+    // THÊM: Return token để frontend tự xử lý
+    return res.json({
+      success: true,
+      user: { email: user.email, _id: user._id },
+      token: token
     });
-
-    // // THÊM: Return token để frontend tự xử lý
-    // return res.json({
-    //   success: true,
-    //   user: { email: user.email, _id: user._id },
-    //   token: token
-    // });
   } catch (err) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
