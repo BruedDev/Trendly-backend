@@ -95,3 +95,33 @@ export async function getCart(req, res) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
 }
+
+// Xóa sản phẩm khỏi giỏ hàng
+export async function removeItemFromCart(req, res) {
+  const { productId } = req.body;
+  const userId = req.user?._id || 'demo-user';
+
+  if (!productId) {
+    return res.status(400).json({ error: 'productId is required' });
+  }
+
+  try {
+    let cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.status(404).json({ error: 'Không tìm thấy giỏ hàng' });
+    }
+
+    const itemIndex = cart.items.findIndex(item => item.productId === productId);
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Sản phẩm không tồn tại trong giỏ hàng' });
+    }
+
+    cart.items.splice(itemIndex, 1);
+    cart.total = await calculateCartTotal(cart.items);
+    await cart.save();
+
+    return res.json({ success: true, cart });
+  } catch (err) {
+    return res.status(500).json({ error: 'Lỗi server', details: err.message });
+  }
+}
