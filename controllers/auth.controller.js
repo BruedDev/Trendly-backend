@@ -37,15 +37,18 @@ export const login = async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true,  // Luôn true cho HTTPS
-      sameSite: 'none',  // none cho cross-domain
+      secure: true,
+      sameSite: 'none',
       maxAge: 24 * 60 * 60 * 1000,
       path: '/',
     });
 
-    console.log('==================');
-
-    return res.json({ success: true, user: { email: user.email, _id: user._id } });
+    // THÊM: Return token để frontend tự xử lý
+    return res.json({
+      success: true,
+      user: { email: user.email, _id: user._id },
+      token: token  // Frontend sẽ tự set cookie
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
