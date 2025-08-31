@@ -14,7 +14,20 @@ const corsMiddleware = () => {
 
   const corsOptions = {
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        // Cho phép các request không có origin (ví dụ: mobile app, curl)
+        return callback(null, true);
+      }
+      const isAllowed = allowedOrigins.some((allowed) => {
+        if (typeof allowed === 'string') {
+          return allowed === origin;
+        }
+        if (allowed instanceof RegExp) {
+          return allowed.test(origin);
+        }
+        return false;
+      });
+      if (isAllowed) {
         return callback(null, true);
       }
       console.error('Blocked CORS origin:', origin);

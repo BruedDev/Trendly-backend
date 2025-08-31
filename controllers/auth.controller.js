@@ -30,11 +30,6 @@ export const login = async (req, res) => {
     const origin = req.headers.origin;
     const isCrossDomain = origin && !origin.includes('localhost');
 
-    console.log('=== COOKIE DEBUG ===');
-    console.log('Origin:', origin);
-    console.log('isProduction:', isProduction);
-    console.log('isCrossDomain:', isCrossDomain);
-
     res.cookie('token', token, {
       httpOnly: true,
       secure: true,
@@ -43,12 +38,12 @@ export const login = async (req, res) => {
       path: '/',
     });
 
-    // THÊM: Return token để frontend tự xử lý
-    return res.json({
-      success: true,
-      user: { email: user.email, _id: user._id },
-      token: token  // Frontend sẽ tự set cookie
-    });
+    // // THÊM: Return token để frontend tự xử lý
+    // return res.json({
+    //   success: true,
+    //   user: { email: user.email, _id: user._id },
+    //   token: token
+    // });
   } catch (err) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
