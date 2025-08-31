@@ -1,3 +1,44 @@
+// Xóa sản phẩm khỏi giỏ hàng
+export async function deleteItemCart(req, res) {
+  const { productId } = req.body;
+  const userId = req.user?._id || 'demo-user';
+
+  if (!productId) {
+    return res.status(400).json({ error: 'productId is required' });
+  }
+
+  try {
+    let cart = await Cart.findOne({ userId });
+    if (!cart) {
+      return res.status(404).json({ error: 'Cart not found' });
+    }
+
+    // Lọc bỏ sản phẩm cần xóa
+    cart.items = cart.items.filter(item => item.productId !== productId);
+
+    // Tính lại tổng tiền
+    cart.total = await calculateCartTotal(cart.items);
+    await cart.save();
+
+    // Lấy lại chi tiết sản phẩm cho từng item
+    const detailedItems = await Promise.all(
+      cart.items.map(async (item) => {
+        const product = await getProductById(item.productId);
+        return {
+          ...item.toObject(),
+          product,
+        };
+      })
+    );
+
+    return res.json({
+      cart: detailedItems,
+      total: cart.total
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Lỗi server', details: err.message });
+  }
+}
 import Cart from '../models/cart.model.js';
 import { getProductById } from '../utils/sanity.js';
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { addToCart, getCart } from '../controllers/cart.controller.js';
+import { addToCart, getCart, deleteItemCart } from '../controllers/cart.controller.js';
 
 const router = express.Router();
 
@@ -8,5 +8,8 @@ router.post('/add', addToCart);
 
 // Lấy giỏ hàng
 router.get('/getCart', getCart);
+
+// Xóa sản phẩm khỏi giỏ hàng
+router.delete('/deleteItem', deleteItemCart);
 
 export default router;

@@ -2,6 +2,7 @@ dotenv.config();
 
 import express from 'express';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import applyMiddlewares from './middlewares/cors.middleware.js';
 import connectDB from './config/db.config.js';
 import routes from './routes/index.routes.js';
@@ -11,12 +12,14 @@ dotenv.config();
 
 const app = express();
 
-
 // Kết nối database
 connectDB();
 
 // Kết nối Sanity
 connectSanity();
+
+// Cookie parser
+app.use(cookieParser());
 
 // Áp dụng middleware
 applyMiddlewares(app);
