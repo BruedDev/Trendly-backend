@@ -5,7 +5,7 @@ import userRoutes from './user.routes.js';
 
 import productsRoutes from './product.routes.js';
 import themeRoutes from './theme.routes.js';
-import cartRoutes from './addToCart.routes.js';
+import cartRoutes from './cart.routes.js';
 import sanityWebhookRoutes from './sanity-webhook.routes.js';
 
 const router = express.Router();
