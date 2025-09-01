@@ -26,7 +26,6 @@ async function checkColorStock(productId, colorCode, requestedQuantity = 1) {
 }
 
 // Thêm sản phẩm vào giỏ hàng
-// Thêm sản phẩm vào giỏ hàng
 export async function addToCart(req, res) {
   const { productId, colorCode } = req.body;
   const userId = req.user?._id;
@@ -136,6 +135,7 @@ export async function addToCart(req, res) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
 }
+
 // Cập nhật số lượng sản phẩm (tăng/giảm)
 export async function updateQuantity(req, res) {
   const { productId, colorCode, quantity } = req.body;
