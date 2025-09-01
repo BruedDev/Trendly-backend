@@ -1,46 +1,127 @@
 import Cart from '../models/cart.model.js';
+import Inventory from '../models/inventory.model.js';
 import { getProductById } from '../utils/sanity.js';
 import { calculateCartTotal } from '../helpers/calculateCartTotal.js';
 
+// Helper function để tạo unique cart item identifier
+const getCartItemKey = (productId, colorCode) => `${productId}_${colorCode}`;
+
+// Helper function để kiểm tra tồn kho theo màu
+async function checkColorStock(productId, colorCode, requestedQuantity = 1) {
+  const inventory = await Inventory.findOne({ productId });
+
+  if (!inventory) {
+    return { inStock: false, availableQuantity: 0 };
+  }
+
+  const colorInventory = inventory.colors.find(c => c.colorCode === colorCode);
+  if (!colorInventory) {
+    return { inStock: false, availableQuantity: 0 };
+  }
+
+  return {
+    inStock: colorInventory.quantity >= requestedQuantity,
+    availableQuantity: colorInventory.quantity
+  };
+}
+
+// Thêm sản phẩm vào giỏ hàng
 // Thêm sản phẩm vào giỏ hàng
 export async function addToCart(req, res) {
-  const { productId } = req.body;
+  const { productId, colorCode } = req.body;
   const userId = req.user?._id;
 
   if (!userId) {
     return res.status(401).json({ error: 'Bạn cần đăng nhập để sử dụng chức năng này.' });
   }
 
-  if (!productId) {
-    return res.status(400).json({ error: 'productId is required' });
+  if (!productId || !colorCode) {
+    return res.status(400).json({ error: 'productId và colorCode là bắt buộc' });
   }
 
   try {
+    // Kiểm tra tồn kho trước khi thêm vào cart
+    const stockCheck = await checkColorStock(productId, colorCode, 1);
+    if (!stockCheck.inStock) {
+      return res.status(400).json({
+        error: 'Sản phẩm màu này đã hết hàng hoặc không đủ số lượng',
+        availableQuantity: stockCheck.availableQuantity
+      });
+    }
+
+    // Lấy thông tin sản phẩm từ Sanity
+    const product = await getProductById(productId);
+    const selectedColor = product.colors?.find(c => c.colorCode === colorCode);
+
+    // Tạo selectedColor object với đầy đủ thông tin
+    const selectedColorObj = {
+      colorCode: colorCode,
+      image: selectedColor?.image || null
+    };
+
     let cart = await Cart.findOne({ userId });
 
     if (!cart) {
-      cart = new Cart({ userId, items: [{ productId, quantity: 1 }] });
+      // Tạo cart mới
+      cart = new Cart({
+        userId,
+        items: [{
+          productId,
+          colorCode,
+          quantity: 1,
+          selectedColor: selectedColorObj
+        }]
+      });
       cart.total = await calculateCartTotal(cart.items);
       await cart.save();
     } else {
-      const existingIndex = cart.items.findIndex(item => item.productId === productId);
+      // Tìm item với cùng productId và colorCode
+      const existingIndex = cart.items.findIndex(item =>
+        item.productId === productId && item.colorCode === colorCode
+      );
 
       if (existingIndex !== -1) {
-        if (cart.items[existingIndex].quantity >= 10) {
+        const newQuantity = cart.items[existingIndex].quantity + 1;
+
+        // Kiểm tra giới hạn 10 sản phẩm
+        if (newQuantity > 10) {
           return res.status(400).json({
             error: 'Sản phẩm này đã đạt tối đa 10 sản phẩm trong giỏ hàng'
           });
         }
 
+        // Kiểm tra tồn kho với số lượng mới
+        const stockCheck = await checkColorStock(productId, colorCode, newQuantity);
+        if (!stockCheck.inStock) {
+          return res.status(400).json({
+            error: `Chỉ còn ${stockCheck.availableQuantity} sản phẩm màu này trong kho`,
+            availableQuantity: stockCheck.availableQuantity
+          });
+        }
+
+        // Cập nhật quantity VÀ selectedColor để đảm bảo có đầy đủ thông tin
         cart = await Cart.findOneAndUpdate(
-          { userId, "items.productId": productId },
-          { $inc: { "items.$.quantity": 1 } },
+          { userId, "items.productId": productId, "items.colorCode": colorCode },
+          {
+            $inc: { "items.$.quantity": 1 },
+            $set: { "items.$.selectedColor": selectedColorObj }
+          },
           { new: true }
         );
       } else {
+        // Thêm item mới
         cart = await Cart.findOneAndUpdate(
           { userId },
-          { $push: { items: { productId, quantity: 1 } } },
+          {
+            $push: {
+              items: {
+                productId,
+                colorCode,
+                quantity: 1,
+                selectedColor: selectedColorObj
+              }
+            }
+          },
           { new: true }
         );
       }
@@ -55,18 +136,17 @@ export async function addToCart(req, res) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
 }
-
 // Cập nhật số lượng sản phẩm (tăng/giảm)
 export async function updateQuantity(req, res) {
-  const { productId, quantity } = req.body;
+  const { productId, colorCode, quantity } = req.body;
   const userId = req.user?._id;
 
   if (!userId) {
     return res.status(401).json({ error: 'Bạn cần đăng nhập để sử dụng chức năng này.' });
   }
 
-  if (!productId || quantity === undefined) {
-    return res.status(400).json({ error: 'productId và quantity are required' });
+  if (!productId || !colorCode || quantity === undefined) {
+    return res.status(400).json({ error: 'productId, colorCode và quantity là bắt buộc' });
   }
 
   // Giới hạn quantity từ 1 đến 10
@@ -75,13 +155,24 @@ export async function updateQuantity(req, res) {
   }
 
   try {
+    // Kiểm tra tồn kho
+    const stockCheck = await checkColorStock(productId, colorCode, quantity);
+    if (!stockCheck.inStock) {
+      return res.status(400).json({
+        error: `Chỉ còn ${stockCheck.availableQuantity} sản phẩm màu này trong kho`,
+        availableQuantity: stockCheck.availableQuantity
+      });
+    }
+
     const cart = await Cart.findOne({ userId });
 
     if (!cart) {
       return res.status(404).json({ error: 'Không tìm thấy giỏ hàng' });
     }
 
-    const itemIndex = cart.items.findIndex(item => item.productId === productId);
+    const itemIndex = cart.items.findIndex(item =>
+      item.productId === productId && item.colorCode === colorCode
+    );
 
     if (itemIndex === -1) {
       return res.status(404).json({ error: 'Sản phẩm không tồn tại trong giỏ hàng' });
@@ -89,7 +180,7 @@ export async function updateQuantity(req, res) {
 
     // Cập nhật quantity
     const updatedCart = await Cart.findOneAndUpdate(
-      { userId, "items.productId": productId },
+      { userId, "items.productId": productId, "items.colorCode": colorCode },
       { $set: { "items.$.quantity": quantity } },
       { new: true }
     );
@@ -122,9 +213,17 @@ export async function getCart(req, res) {
     const detailedItems = await Promise.all(
       cart.items.map(async (item) => {
         const product = await getProductById(item.productId);
+
+        // Kiểm tra tồn kho hiện tại
+        const stockCheck = await checkColorStock(item.productId, item.colorCode, item.quantity);
+
         return {
           ...item.toObject(),
           product,
+          stockInfo: {
+            inStock: stockCheck.inStock,
+            availableQuantity: stockCheck.availableQuantity
+          }
         };
       })
     );
@@ -144,15 +243,15 @@ export async function getCart(req, res) {
 
 // Xóa sản phẩm khỏi giỏ hàng
 export async function removeItemFromCart(req, res) {
-  const { productId } = req.body;
+  const { productId, colorCode } = req.body;
   const userId = req.user?._id;
 
   if (!userId) {
     return res.status(401).json({ error: 'Bạn cần đăng nhập để sử dụng chức năng này.' });
   }
 
-  if (!productId) {
-    return res.status(400).json({ error: 'productId is required' });
+  if (!productId || !colorCode) {
+    return res.status(400).json({ error: 'productId và colorCode là bắt buộc' });
   }
 
   try {
@@ -162,7 +261,9 @@ export async function removeItemFromCart(req, res) {
       return res.status(404).json({ error: 'Không tìm thấy giỏ hàng' });
     }
 
-    const itemIndex = cart.items.findIndex(item => item.productId === productId);
+    const itemIndex = cart.items.findIndex(item =>
+      item.productId === productId && item.colorCode === colorCode
+    );
 
     if (itemIndex === -1) {
       return res.status(404).json({ error: 'Sản phẩm không tồn tại trong giỏ hàng' });

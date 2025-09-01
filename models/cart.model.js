@@ -5,6 +5,10 @@ const CartItemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  colorCode: {
+    type: String,
+    required: true,
+  },
   title: String,
   slug: String,
   price: Number,
@@ -50,6 +54,16 @@ const CartItemSchema = new mongoose.Schema({
       }
     }
   ],
+  selectedColor: {
+    colorCode: String,
+    image: {
+      asset: {
+        url: String,
+        alt: String
+      },
+      alt: String
+    }
+  },
   isNew: Boolean,
   isBestseller: Boolean,
   inStock: Boolean,
@@ -58,6 +72,9 @@ const CartItemSchema = new mongoose.Schema({
     default: 1,
   },
 });
+
+// Tạo compound index để đảm bảo unique combination
+CartItemSchema.index({ productId: 1, colorCode: 1 });
 
 const CartSchema = new mongoose.Schema({
   userId: {

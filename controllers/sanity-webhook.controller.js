@@ -1,4 +1,3 @@
-
 import sanityClient from '../config/sanity.config.js';
 import Inventory from '../models/inventory.model.js';
 import Cart from '../models/cart.model.js';
@@ -32,7 +31,6 @@ export async function sanityWebhook() {
 
   if (deletedProductIds.length > 0) {
     await Inventory.deleteMany({ productId: { $in: deletedProductIds } });
-
   }
 
   let updatedCount = 0;
@@ -56,50 +54,56 @@ export async function sanityWebhook() {
     updatedCount++;
   }
 
-
   // --- ĐỒNG BỘ CART ---
-
   const carts = await Cart.find({});
-
-
   let updatedCarts = 0;
 
   for (const cart of carts) {
-
-
-
     let hasChanges = false;
     const originalLength = cart.items.length;
 
-    // Lọc các item không còn tồn tại trên Sanity
+    // Lọc các item không còn tồn tại trên Sanity hoặc màu không còn
     const validItems = [];
 
     for (const item of cart.items) {
-      const exists = sanityProductIds.includes(item.productId);
+      const productExists = sanityProductIds.includes(item.productId);
+      const sanityProduct = productMap[item.productId];
 
+      // Kiểm tra sản phẩm có tồn tại không
+      if (!productExists) {
+        hasChanges = true;
+        continue; // Bỏ qua item này
+      }
 
-      if (exists) {
-        // Cập nhật thông tin item từ Sanity
-        const sanityProduct = productMap[item.productId];
-        const updatedItem = {
-          ...item.toObject(),
-          title: sanityProduct.title,
-          // Cập nhật price nếu có
-          price: sanityProduct.price || item.price,
-          updatedAt: new Date()
-        };
+      // Kiểm tra màu có còn tồn tại không
+      const colorExists = sanityProduct.colors &&
+        sanityProduct.colors.some(c => c.colorCode === item.colorCode);
 
-        // So sánh xem có thay đổi không
-        if (item.title !== sanityProduct.title ||
-          item.price !== sanityProduct.price) {
-          hasChanges = true;
+      if (!colorExists) {
+        hasChanges = true;
+        continue; // Bỏ qua item này
+      }
 
-        }
+      // Cập nhật thông tin item từ Sanity
+      const selectedColor = sanityProduct.colors.find(c => c.colorCode === item.colorCode);
 
-        validItems.push(updatedItem);
-      } else {
+      const updatedItem = {
+        ...item.toObject(),
+        title: sanityProduct.title,
+        price: sanityProduct.price || item.price,
+        selectedColor: selectedColor || item.selectedColor,
+        updatedAt: new Date()
+      };
+
+      // So sánh xem có thay đổi không
+      if (item.title !== sanityProduct.title ||
+        item.price !== sanityProduct.price ||
+        !item.selectedColor ||
+        item.selectedColor.colorCode !== selectedColor?.colorCode) {
         hasChanges = true;
       }
+
+      validItems.push(updatedItem);
     }
 
     // Cập nhật cart
@@ -123,7 +127,7 @@ export async function sanityWebhook() {
       updatedCarts++;
 
       if (originalLength !== cart.items.length) {
-
+        console.log(`Cart ${cart.userId}: Removed ${originalLength - cart.items.length} invalid items`);
       }
     } else {
       // FORCE UPDATE - cập nhật updatedAt dù không có thay đổi
@@ -132,5 +136,9 @@ export async function sanityWebhook() {
       updatedCarts++;
     }
   }
-}
 
+  console.log(`Sync completed:
+    - Updated ${updatedCount} inventory records
+    - Updated ${updatedCarts} carts
+    - Removed inventory for ${deletedProductIds.length} deleted products`);
+}
