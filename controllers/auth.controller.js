@@ -25,31 +25,64 @@ export const login = async (req, res) => {
       { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '1d' }
     );
 
-    // THÊM: Return token để frontend tự xử lý
+    // Trả về token và thông tin user (không có password)
     return res.json({
       success: true,
-      user: { email: user.email, _id: user._id },
+      user: {
+        _id: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        phone: user.phone,
+        address: user.address,
+        role: user.role
+      },
       token: token
     });
   } catch (err) {
+    console.log('Register error:', err);
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
 };
 
+
 export const register = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email và password là bắt buộc.' });
+    const { fullName, password, email, address, phone } = req.body;
+    if (!fullName || !password || !email || !address) {
+      return res.status(400).json({ error: 'fullName, password, email, address là bắt buộc.' });
     }
-    const existingUser = await User.findOne({ email });
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email không hợp lệ.' });
+    }
+
+    // Kiểm tra trùng lặp email
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({ error: 'Email đã tồn tại.' });
     }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hashedPassword });
+    const user = new User({
+      fullName,
+      email: email.toLowerCase(),
+      address,
+      password: hashedPassword,
+      phone: phone || ''
+    });
     await user.save();
-    return res.status(201).json({ success: true, user: { email: user.email, _id: user._id } });
+    return res.status(201).json({
+      success: true,
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        role: user.role
+      }
+    });
   } catch (err) {
     return res.status(500).json({ error: 'Lỗi server', details: err.message });
   }
