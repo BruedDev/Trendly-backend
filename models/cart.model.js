@@ -5,6 +5,10 @@ const CartItemSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  size: {
+    type: String,
+    required: false, // Không bắt buộc
+  },
   colorCode: {
     type: String,
     required: true,
@@ -73,8 +77,8 @@ const CartItemSchema = new mongoose.Schema({
   },
 });
 
-// Tạo compound index để đảm bảo unique combination
-CartItemSchema.index({ productId: 1, colorCode: 1 });
+// CẬP NHẬT: Compound index bao gồm cả size
+CartItemSchema.index({ productId: 1, colorCode: 1, size: 1 });
 
 const CartSchema = new mongoose.Schema({
   userId: {

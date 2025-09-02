@@ -7,7 +7,12 @@ const inventorySchema = new mongoose.Schema({
   colors: [
     {
       colorCode: { type: String, required: true },
-      quantity: { type: Number, required: true, default: 0 }
+      sizes: [
+        {
+          size: { type: String, required: true },
+          quantity: { type: Number, required: true, default: 0 }
+        }
+      ]
     }
   ],
   updatedAt: { type: Date, default: Date.now }

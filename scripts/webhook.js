@@ -9,8 +9,6 @@ dotenv.config();
 
 // Script đồng bộ inventory và cart từ Sanity sang MongoDB
 export async function sanityWebhookLocal() {
-  console.log('📦 Đang lấy dữ liệu từ Sanity...');
-
   // Lấy tất cả sản phẩm từ Sanity với đầy đủ thông tin
   const products = await sanityClient.fetch(`
     *[_type == "product"]{
@@ -21,8 +19,6 @@ export async function sanityWebhookLocal() {
       images
     }
   `);
-  console.log(`📊 Tìm thấy ${products.length} sản phẩm từ Sanity`);
-  console.log('🆔 Sanity Product IDs:', products.map(p => p._id));
 
   const sanityProductIds = products.map(p => p._id);
 
@@ -33,23 +29,35 @@ export async function sanityWebhookLocal() {
   });
 
   // --- ĐỒNG BỘ INVENTORY ---
-  console.log('🔄 Đồng bộ Inventory...');
   const mongoInventories = await Inventory.find({}, 'productId');
   const mongoProductIds = mongoInventories.map(inv => inv.productId);
   const deletedProductIds = mongoProductIds.filter(id => !sanityProductIds.includes(id));
 
   if (deletedProductIds.length > 0) {
     await Inventory.deleteMany({ productId: { $in: deletedProductIds } });
-    console.log(`🗑️  Đã xóa tồn kho các sản phẩm không còn trên Sanity:`, deletedProductIds);
   }
 
   let updatedCount = 0;
   for (const product of products) {
-    const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
-      colorCode: c.colorCode,
-      quantity: c.quantity ?? 0
-    }));
-    const totalQuantity = colors.reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+    // Lấy đúng cấu trúc sizes cho từng màu
+    const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => {
+      let sizes = [];
+      if (Array.isArray(c.sizes)) {
+        sizes = c.sizes.map(s => ({
+          size: s.size,
+          quantity: s.quantity ?? 0
+        }));
+      }
+      return {
+        colorCode: c.colorCode,
+        sizes
+      };
+    });
+
+    // Tính tổng quantity cho toàn bộ sản phẩm
+    const totalQuantity = colors.reduce((sum, color) => {
+      return sum + color.sizes.reduce((sSum, s) => sSum + (s.quantity ?? 0), 0);
+    }, 0);
 
     await Inventory.findOneAndUpdate(
       { productId: product._id },
@@ -63,51 +71,57 @@ export async function sanityWebhookLocal() {
     );
     updatedCount++;
   }
-  console.log(`✅ Đã cập nhật ${updatedCount} sản phẩm vào Inventory`);
 
   // --- ĐỒNG BỘ CART ---
-  console.log('🛒 Đồng bộ Cart...');
   const carts = await Cart.find({});
-  console.log(`📋 Tìm thấy ${carts.length} giỏ hàng trong MongoDB`);
-
   let updatedCarts = 0;
 
   for (const cart of carts) {
-    console.log(`\n🔍 Xử lý cart của user: ${cart.userId}`);
-    console.log(`📦 Cart có ${cart.items.length} items`);
-
     let hasChanges = false;
     const originalLength = cart.items.length;
 
-    // Lọc các item không còn tồn tại trên Sanity
+    // Lọc các item không còn tồn tại trên Sanity hoặc màu không còn
     const validItems = [];
 
     for (const item of cart.items) {
-      const exists = sanityProductIds.includes(item.productId);
-      console.log(`   Item: ${item.productId} - ${exists ? '✅ Còn tồn tại' : '❌ Không tồn tại'} trên Sanity`);
+      const productExists = sanityProductIds.includes(item.productId);
+      const sanityProduct = productMap[item.productId];
 
-      if (exists) {
-        // Cập nhật thông tin item từ Sanity
-        const sanityProduct = productMap[item.productId];
-        const updatedItem = {
-          ...item.toObject(),
-          title: sanityProduct.title,
-          // Cập nhật price nếu có
-          price: sanityProduct.price || item.price,
-          updatedAt: new Date()
-        };
+      // Kiểm tra sản phẩm có tồn tại không
+      if (!productExists) {
+        hasChanges = true;
+        continue; // Bỏ qua item này
+      }
 
-        // So sánh xem có thay đổi không
-        if (item.title !== sanityProduct.title ||
-          item.price !== sanityProduct.price) {
-          hasChanges = true;
-          console.log(`   🔄 Cập nhật thông tin: ${item.title} → ${sanityProduct.title}`);
-        }
+      // Kiểm tra màu có còn tồn tại không
+      const colorExists = sanityProduct.colors &&
+        sanityProduct.colors.some(c => c.colorCode === item.colorCode);
 
-        validItems.push(updatedItem);
-      } else {
+      if (!colorExists) {
+        hasChanges = true;
+        continue; // Bỏ qua item này
+      }
+
+      // Cập nhật thông tin item từ Sanity
+      const selectedColor = sanityProduct.colors.find(c => c.colorCode === item.colorCode);
+
+      const updatedItem = {
+        ...item.toObject(),
+        title: sanityProduct.title,
+        price: sanityProduct.price || item.price,
+        selectedColor: selectedColor || item.selectedColor,
+        updatedAt: new Date()
+      };
+
+      // So sánh xem có thay đổi không
+      if (item.title !== sanityProduct.title ||
+        item.price !== sanityProduct.price ||
+        !item.selectedColor ||
+        item.selectedColor.colorCode !== selectedColor?.colorCode) {
         hasChanges = true;
       }
+
+      validItems.push(updatedItem);
     }
 
     // Cập nhật cart
@@ -130,24 +144,21 @@ export async function sanityWebhookLocal() {
       await cart.save();
       updatedCarts++;
 
-      console.log(`🛒 ĐÃ CẬP NHẬT cart user ${cart.userId}:`);
-      console.log(`   📊 Items: ${originalLength} → ${cart.items.length}`);
-      console.log(`   💰 Total: ${oldTotal} → ${total}`);
-
       if (originalLength !== cart.items.length) {
-        console.log(`   🗑️  Đã xóa ${originalLength - cart.items.length} items không tồn tại`);
+        console.log(`Cart ${cart.userId}: Removed ${originalLength - cart.items.length} invalid items`);
       }
     } else {
       // FORCE UPDATE - cập nhật updatedAt dù không có thay đổi
       cart.updatedAt = new Date();
       await cart.save();
       updatedCarts++;
-      console.log(`🔄 FORCE UPDATE cart của user ${cart.userId} (cập nhật updatedAt)`);
     }
   }
 
-  console.log(`\n✅ Đã xử lý ${updatedCarts}/${carts.length} giỏ hàng`);
-  console.log('🎉 Đồng bộ tồn kho và giỏ hàng từ Sanity sang MongoDB thành công!');
+  console.log(`Sync completed:
+    - Updated ${updatedCount} inventory records
+    - Updated ${updatedCarts} carts
+    - Removed inventory for ${deletedProductIds.length} deleted products`);
 }
 
 // Function để test local

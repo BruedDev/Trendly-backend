@@ -2,10 +2,7 @@ import sanityClient from '../config/sanity.config.js';
 import Inventory from '../models/inventory.model.js';
 import Cart from '../models/cart.model.js';
 
-// Script đồng bộ inventory và cart từ Sanity sang MongoDB
-
 export async function sanityWebhook() {
-  // Lấy tất cả sản phẩm từ Sanity với đầy đủ thông tin
   const products = await sanityClient.fetch(`
     *[_type == "product"]{
       _id,
@@ -35,11 +32,25 @@ export async function sanityWebhook() {
 
   let updatedCount = 0;
   for (const product of products) {
-    const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => ({
-      colorCode: c.colorCode,
-      quantity: c.quantity ?? 0
-    }));
-    const totalQuantity = colors.reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+    // Lấy đúng cấu trúc sizes cho từng màu
+    const colors = (Array.isArray(product.colors) ? product.colors : []).map(c => {
+      let sizes = [];
+      if (Array.isArray(c.sizes)) {
+        sizes = c.sizes.map(s => ({
+          size: s.size,
+          quantity: s.quantity ?? 0
+        }));
+      }
+      return {
+        colorCode: c.colorCode,
+        sizes
+      };
+    });
+
+    // Tính tổng quantity cho toàn bộ sản phẩm
+    const totalQuantity = colors.reduce((sum, color) => {
+      return sum + color.sizes.reduce((sSum, s) => sSum + (s.quantity ?? 0), 0);
+    }, 0);
 
     await Inventory.findOneAndUpdate(
       { productId: product._id },
