@@ -221,6 +221,21 @@ export async function getCart(req, res) {
         // Kiểm tra tồn kho hiện tại
         const stockCheck = await checkColorStock(item.productId, item.colorCode, itemSize, item.quantity);
 
+
+        // Ưu tiên lấy categories từ product (Sanity), fallback sang item nếu product không có
+        let categories = (product.categories && product.categories.length > 0)
+          ? product.categories
+          : (item.categories || []);
+
+        // Chuẩn hóa categories: luôn trả về image, slug (object), title
+        categories = categories.map(cat => ({
+          image: cat.image ?? null,
+          slug: (cat.slug && typeof cat.slug === 'object' && cat.slug.current)
+            ? cat.slug
+            : (cat.slug ? { _type: 'slug', current: cat.slug } : null),
+          title: cat.title ?? null
+        }));
+
         return {
           ...item.toObject(),
           product,
@@ -228,7 +243,8 @@ export async function getCart(req, res) {
           stockInfo: {
             inStock: stockCheck.inStock,
             availableQuantity: stockCheck.availableQuantity
-          }
+          },
+          categories
         };
       })
     );
