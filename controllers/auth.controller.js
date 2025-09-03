@@ -48,8 +48,8 @@ export const login = async (req, res) => {
 export const register = async (req, res) => {
   try {
     const { fullName, password, email, address, phone } = req.body;
-    if (!fullName || !password || !email || !address) {
-      return res.status(400).json({ error: 'fullName, password, email, address là bắt buộc.' });
+    if (!fullName || !password || !email) {
+      return res.status(400).json({ error: 'fullName, password, email là bắt buộc.' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,7 +67,7 @@ export const register = async (req, res) => {
     const user = new User({
       fullName,
       email: email.toLowerCase(),
-      address,
+      address: address || '',
       password: hashedPassword,
       phone: phone || ''
     });

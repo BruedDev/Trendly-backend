@@ -19,12 +19,13 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   address: {
     type: String,
-    required: true,
-    trim: true
+    trim: true,
+    default: ''
   },
   role: {
     type: String,
