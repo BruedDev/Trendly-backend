@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 
 export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'] || req.cookies['token'];
   let token;
+  const authHeader = req.headers['authorization'];
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
@@ -15,7 +15,9 @@ export const authenticateToken = (req, res, next) => {
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token không hợp lệ.' });
+    if (err) {
+      return res.status(403).json({ error: 'Token không hợp lệ.' });
+    }
     req.user = user;
     next();
   });
