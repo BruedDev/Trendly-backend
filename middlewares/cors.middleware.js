@@ -3,6 +3,8 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 const corsMiddleware = () => {
+  // Original CORS configuration for future reference
+  /*
   const allowedOrigins = [
     process.env.FRONTEND_URL,
     'http://localhost:3000',
@@ -17,6 +19,15 @@ const corsMiddleware = () => {
       console.error('Blocked CORS origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  };
+  */
+
+  // Temporary configuration to allow all origins
+  const corsOptions = {
+    origin: '*',
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],

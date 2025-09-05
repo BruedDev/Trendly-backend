@@ -7,7 +7,7 @@ const CartItemSchema = new mongoose.Schema({
   },
   size: {
     type: String,
-    required: false, // Không bắt buộc
+    required: false,
   },
   colorCode: {
     type: String,
