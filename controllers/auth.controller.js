@@ -22,10 +22,9 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { _id: user._id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '1d' }
+      { expiresIn: '365d' }
     );
 
-    // Trả về token và thông tin user (không có password)
     return res.json({
       success: true,
       user: {
