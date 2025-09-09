@@ -9,16 +9,19 @@ dotenv.config();
 
 // Script đồng bộ inventory và cart từ Sanity sang MongoDB
 export async function sanityWebhookLocal() {
-  // Lấy tất cả sản phẩm từ Sanity với đầy đủ thông tin
+  // Lấy tất cả sản phẩm từ Sanity với đầy đủ thông tin (bao gồm slug)
   const products = await sanityClient.fetch(`
-    *[_type == "product"]{
-      _id,
-      title,
-      price,
-      colors,
-      images
-    }
-  `);
+   *[_type == "product"]{
+     _id,
+     title,
+     "slug": slug.current,
+     price,
+     colors,
+     images
+   }
+ `);
+
+  console.log('First product data:', JSON.stringify(products[0], null, 2));
 
   const sanityProductIds = products.map(p => p._id);
 
@@ -59,10 +62,13 @@ export async function sanityWebhookLocal() {
       return sum + color.sizes.reduce((sSum, s) => sSum + (s.quantity ?? 0), 0);
     }, 0);
 
+    console.log(`Updating product ${product.title} with slug: ${product.slug}`);
+
     await Inventory.findOneAndUpdate(
       { productId: product._id },
       {
         title: product.title,
+        slug: product.slug,
         totalQuantity,
         colors,
         updatedAt: new Date()
@@ -108,6 +114,7 @@ export async function sanityWebhookLocal() {
       const updatedItem = {
         ...item.toObject(),
         title: sanityProduct.title,
+        slug: sanityProduct.slug,
         price: sanityProduct.price || item.price,
         selectedColor: selectedColor || item.selectedColor,
         updatedAt: new Date()
@@ -115,6 +122,7 @@ export async function sanityWebhookLocal() {
 
       // So sánh xem có thay đổi không
       if (item.title !== sanityProduct.title ||
+        item.slug !== sanityProduct.slug ||
         item.price !== sanityProduct.price ||
         !item.selectedColor ||
         item.selectedColor.colorCode !== selectedColor?.colorCode) {
@@ -155,10 +163,14 @@ export async function sanityWebhookLocal() {
     }
   }
 
+  // Kiểm tra kết quả sau khi update
+  const sampleInventory = await Inventory.findOne({});
+  console.log('Sample inventory after update:', JSON.stringify(sampleInventory, null, 2));
+
   console.log(`Sync completed:
-    - Updated ${updatedCount} inventory records
-    - Updated ${updatedCarts} carts
-    - Removed inventory for ${deletedProductIds.length} deleted products`);
+   - Updated ${updatedCount} inventory records
+   - Updated ${updatedCarts} carts
+   - Removed inventory for ${deletedProductIds.length} deleted products`);
 }
 
 // Function để test local
