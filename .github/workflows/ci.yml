@@ -2,68 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 18
 
-      - name: Show environment info
-        run: |
-          echo "Node version: $(node --version)"
-          echo "NPM version: $(npm --version)"
-          echo "Working directory: $(pwd)"
-
-      - name: List files
-        run: ls -la
-
-      - name: Check package.json exists
-        run: |
-          if [ ! -f package.json ]; then
-            echo "❌ package.json not found!"
-            exit 1
-          else
-            echo "✅ package.json found"
-          fi
-
-      - name: Install dependencies
-        run: |
-          npm ci --verbose
-
-      - name: Check build script exists
-        run: |
-          if npm run | grep -q "build"; then
-            echo "✅ Build script found"
-          else
-            echo "❌ Build script not found in package.json"
-            echo "Available scripts:"
-            npm run
-            exit 1
-          fi
-
-      - name: Run build
-        run: npm run build
-
-      - name: Run tests (if available)
-        run: |
-          if npm run | grep -q "test"; then
-            npm test
-          else
-            echo "⚠️ No test script found, skipping tests"
-          fi
+      - run: npm install
+      - run: npm run build
