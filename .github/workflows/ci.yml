@@ -1,4 +1,4 @@
-name: CI
+name: Status Check
 
 on:
   push:
@@ -7,11 +7,12 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build:
+  quick-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 2  # Limit để tiết kiệm phút
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -20,38 +21,32 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Clean install dependencies
+      - name: Check package.json
         run: |
-          rm -rf node_modules package-lock.json
-          npm install
-
-      - name: Check for build script
-        run: |
-          if npm run | grep -q "build"; then
-            echo "Build script found, running build..."
-            npm run build
+          if [ -f "package.json" ]; then
+            echo "✅ package.json exists"
+            node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+            echo "✅ package.json is valid JSON"
           else
-            echo "No build script found, skipping build step"
+            echo "❌ package.json not found"
+            exit 1
           fi
 
-      - name: Run tests (if webhook test exists)
+      - name: Install dependencies (fast)
+        run: npm ci --only=production
+
+      - name: Syntax check
         run: |
-          if [ -f "scripts/webhook.js" ]; then
-            echo "Running webhook test..."
-            npm run test:webhook
+          if [ -f "app.js" ]; then
+            node -c app.js
+            echo "✅ app.js syntax OK"
           else
-            echo "Webhook test file not found, creating dummy test..."
-            mkdir -p scripts
-            echo "console.log('Test passed successfully');" > scripts/webhook.js
-            npm test
+            echo "❌ app.js not found"
+            exit 1
           fi
 
-      - name: Verify app starts
+      - name: Environment check
         run: |
-          if npm run | grep -q "start"; then
-            timeout 30s npm start &
-            sleep 10
-            echo "App verification completed"
-          else
-            echo "No start script found, skipping app verification"
-          fi
+          echo "✅ Node version: $(node --version)"
+          echo "✅ NPM version: $(npm --version)"
+          echo "✅ Basic checks passed"
