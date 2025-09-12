@@ -1,9 +1,15 @@
 import express from 'express';
-import { createPayment, capturePayment } from '../controllers/payment.controller.js';
+import { initiateCheckout, removeItem } from '../controllers/payment.controller.js';
+import { authenticateToken } from '../middlewares/auth.middleware.js';
+import { checkUserInfo } from '../middlewares/checkUserInfo.middleware.js';
 
 const router = express.Router();
+// kiểm tra user và mã hóa phiên giao dịch
 
-router.post('/create-payment', createPayment);
-router.post('/capture-payment', capturePayment);
+// Xóa sản phẩm
+router.delete('/remove-item', authenticateToken, removeItem);
+
+router.post('/initiate-checkout', authenticateToken, checkUserInfo, initiateCheckout);
 
 export default router;
+

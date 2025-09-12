@@ -7,6 +7,7 @@ import cartRoutes from './cart.routes.js';
 import sanityWebhookRoutes from './sanity-webhook.routes.js';
 import paymentRoutes from './payment.routes.js';
 import voucherRoutes from './voucher.routes.js';
+import vietnamRegions from './VietnamRegions.routes.js';
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router.use('/api/user', userRoutes);
 router.use('/api/products', productsRoutes);
 router.use('/api/cart', cartRoutes);
 router.use('/api/pay', paymentRoutes);
+router.use('/api/vietnamRegions', vietnamRegions);
 router.use('/api/voucher', voucherRoutes);
 router.use('/api/webhook', sanityWebhookRoutes);
 
