@@ -9,5 +9,5 @@ Dự án này là một API backend đơn giản sử dụng Express.js. Nó cun
 
 ## Cài đặt
 
-### 1. Clone dự án về máy
+### 1. Clone dự án về máy.
 
