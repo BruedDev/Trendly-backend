@@ -1,7 +1,6 @@
 import express from 'express';
 import { sanityWebhook } from '../controllers/sanity-webhook.controller.js';
 
-
 const router = express.Router();
 
 // Webhook nhận sự kiện từ Sanity
