@@ -1,7 +1,14 @@
 import jwt from 'jsonwebtoken';
+import Order from '../models/order.model.js';
 import { getProductById } from '../utils/sanity.js';
 import { getInventoryByProductId } from '../utils/inventory.js';
 
+// PayPal service
+import { createPaypalOrder, capturePaypalOrder } from '../services/paypal.service.js';
+
+/**
+ * Bước 1: Khởi tạo checkout state bằng JWT (giữ thông tin đơn hàng tạm thời)
+ */
 export const initiateCheckout = async (req, res) => {
   const { products } = req.body;
   const user = req.user;
@@ -13,17 +20,14 @@ export const initiateCheckout = async (req, res) => {
 
   try {
     const productsWithDetails = await Promise.all(products.map(async (p) => {
-      // Lấy thông tin sản phẩm
       const productData = await getProductById(p.productId);
-      // Chỉ sử dụng imageUrl FE gửi lên, không lấy từ colorObj hay productData nữa
       const imageUrl = p.imageUrl || "/default-image.png";
       const price = typeof productData.price === 'number' ? productData.price : 0;
-      // Tổng tiền cho sản phẩm này
       const total = price * (p.quantity || 1);
       return {
         productId: p.productId,
         name: productData.title,
-        color: p.color, // lấy color từ FE gửi lên
+        color: p.color,
         size: p.size,
         quantity: p.quantity,
         price,
@@ -50,7 +54,9 @@ export const initiateCheckout = async (req, res) => {
   }
 };
 
-// ✅ Cập nhật removeItem để tạo JWT mới
+/**
+ * Bước 2: Xóa sản phẩm khỏi checkout state, tạo JWT mới
+ */
 export const removeItem = async (req, res) => {
   const { products, productId, color, size } = req.body;
   const user = req.user;
@@ -61,12 +67,10 @@ export const removeItem = async (req, res) => {
   }
 
   try {
-    // Lọc bỏ sản phẩm cần xóa
     const filteredProducts = products.filter(
       (p) => !(p.productId === productId && p.color === color && p.size === size)
     );
 
-    // ✅ Tạo JWT mới với danh sách sản phẩm đã cập nhật
     const newCheckoutState = jwt.sign(
       {
         userId: user.id,
@@ -77,14 +81,109 @@ export const removeItem = async (req, res) => {
       { expiresIn: '15m' }
     );
 
-    // ✅ Trả về cả products và checkoutState mới
     res.status(200).json({
       products: filteredProducts,
-      checkoutState: newCheckoutState  // JWT mới
+      checkoutState: newCheckoutState
     });
 
   } catch (error) {
     console.error('Lỗi khi xóa sản phẩm:', error);
     res.status(500).json({ error: 'Lỗi hệ thống khi xóa sản phẩm.' });
+  }
+};
+
+/**
+ * Bước 3: Xác nhận đơn → lưu DB pending → gọi PayPal
+ */
+export const confirmOrder = async (req, res) => {
+  try {
+    const { products, totalAmount, paymentMethod } = req.body;
+    const userId = req.user._id;
+
+    if (paymentMethod !== 'paypal') {
+      return res.status(400).json({ error: 'Hiện tại chỉ hỗ trợ PayPal' });
+    }
+
+    // Lưu order pending
+    const newOrder = await Order.create({
+      userId,
+      products,
+      totalAmount,
+      paymentMethod,
+      status: 'pending'
+    });
+
+    // Gọi PayPal
+    const paymentResponse = await createPaypalOrder(totalAmount);
+
+    // Lưu transactionId = orderId PayPal
+    await Order.findByIdAndUpdate(newOrder._id, { transactionId: paymentResponse.id });
+
+    res.status(200).json({
+      orderId: newOrder._id,
+      payment: paymentResponse
+    });
+
+  } catch (error) {
+    console.error("confirmOrder error:", error);
+    res.status(500).json({ error: "Lỗi khi xác nhận đơn" });
+  }
+};
+
+/**
+ * Bước 4: Success handler cho PayPal redirect
+ */
+export const handlePaypalSuccess = async (req, res) => {
+  try {
+    const { token } = req.query; // PayPal orderId từ URL
+
+    if (!token) {
+      return res.status(400).json({ error: 'Thiếu token PayPal' });
+    }
+
+    const captureData = await capturePaypalOrder(token);
+
+    const updatedOrder = await Order.findOneAndUpdate(
+      { transactionId: token },
+      {
+        status: 'paid',
+        paymentData: captureData
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Thanh toán thành công',
+      order: updatedOrder,
+      paymentData: captureData
+    });
+  } catch (error) {
+    console.error("handlePaypalSuccess error:", error);
+    res.status(500).json({ error: "Lỗi khi xác nhận thanh toán PayPal" });
+  }
+};
+
+/**
+ * Bước 5: Callback / Webhook từ PayPal
+ */
+export const handlePaypalCallback = async (req, res) => {
+  try {
+    const { token } = req.query; // PayPal orderId
+    const captureData = await capturePaypalOrder(token);
+
+    await Order.findOneAndUpdate(
+      { transactionId: token },
+      { status: 'paid' }
+    );
+
+    res.json({ success: true, data: captureData });
+  } catch (error) {
+    console.error("handlePaypalCallback error:", error);
+    res.status(500).json({ error: "Lỗi khi xác nhận thanh toán PayPal" });
   }
 };
