@@ -8,7 +8,15 @@ export async function getAllProducts() {
 
 // Lấy sản phẩm theo ID
 export async function getProductById(id) {
-  const query = '*[_type == "product" && _id == $id][0]';
+  // Lấy product và populate categories (image, slug, title)
+  const query = `*[_type == "product" && _id == $id][0]{
+    ...,
+    categories[]-> {
+      image,
+      slug,
+      title
+    }
+  }`;
   return await sanityClient.fetch(query, { id });
 }
 

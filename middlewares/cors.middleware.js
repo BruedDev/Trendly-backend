@@ -7,6 +7,7 @@ const corsMiddleware = () => {
     process.env.FRONTEND_URL,
     'http://localhost:3000',
     'http://localhost:3001',
+    'https://trendly-git-feat-animation-cart-vanlocs-projects-7d9c099e.vercel.app'
   ].filter(Boolean);
 
   const corsOptions = {
@@ -19,6 +20,7 @@ const corsMiddleware = () => {
     },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   };
 
   return cors(corsOptions);
