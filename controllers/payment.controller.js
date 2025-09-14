@@ -97,10 +97,13 @@ export const removeItem = async (req, res) => {
  */
 export const confirmOrder = async (req, res) => {
   try {
+    console.log('Xác nhận đơn - req.body:', req.body);
+    console.log('Xác nhận đơn - req.user:', req.user);
     const { products, totalAmount, paymentMethod } = req.body;
-    const userId = req.user._id;
+    const userId = req.user?._id;
 
     if (paymentMethod !== 'paypal') {
+      console.log('Phương thức thanh toán không phải PayPal:', paymentMethod);
       return res.status(400).json({ error: 'Hiện tại chỉ hỗ trợ PayPal' });
     }
 
@@ -112,12 +115,15 @@ export const confirmOrder = async (req, res) => {
       paymentMethod,
       status: 'pending'
     });
+    console.log('Order pending đã tạo:', newOrder);
 
     // Gọi PayPal
     const paymentResponse = await createPaypalOrder(totalAmount);
+    console.log('Kết quả gọi PayPal:', paymentResponse);
 
     // Lưu transactionId = orderId PayPal
     await Order.findByIdAndUpdate(newOrder._id, { transactionId: paymentResponse.id });
+    console.log('Đã cập nhật transactionId cho order:', newOrder._id);
 
     res.status(200).json({
       orderId: newOrder._id,
