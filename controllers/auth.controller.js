@@ -25,13 +25,6 @@ export const login = async (req, res) => {
       { expiresIn: '365d' }
     );
 
-    // Set cookie chứa token
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 365 * 24 * 60 * 60 * 1000
-    });
     return res.json({
       success: true,
       user: {
@@ -41,7 +34,8 @@ export const login = async (req, res) => {
         phone: user.phone,
         address: user.address,
         role: user.role
-      }
+      },
+      token: token
     });
   } catch (err) {
     console.log('Register error:', err);
